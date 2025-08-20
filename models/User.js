@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: false,
     minlength: 6
   },
   email: {
@@ -27,6 +27,11 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     trim: true
+  },
+  wxOpenid: {
+    type: String,
+    unique: true,
+    sparse: true // 允许部分用户没有该字段
   },
   createdAt: {
     type: Date,

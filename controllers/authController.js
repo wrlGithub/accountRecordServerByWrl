@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const axios = require('axios');
 
 const secret = process.env.JWT_SECRET || 'your-default-secret';
 
@@ -101,5 +102,61 @@ exports.updateProfile = async (ctx) => {
   } catch (error) {
     ctx.status = 500;
     ctx.body = { message: '用户信息更新失败', error: error.message };
+  }
+};
+
+// 微信小程序登录
+exports.wxLogin = async (ctx) => {
+  const { code } = ctx.request.body;
+  console.log('微信登录');
+  
+  if (!code) {
+    ctx.status = 400;
+    ctx.body = { message: '缺少code' };
+    return;
+  }
+  // 你的微信小程序AppID和AppSecret
+  const appid = process.env.WX_APPID || 'wx0aefaa68b38cac50';
+  const secret = process.env.WX_SECRET || '98087924e18e8c92f51910f28e57572b';
+  try {
+    // 1. 用code换取openid和session_key
+    const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
+      params: {
+        appid,
+        secret,
+        js_code: code,
+        grant_type: 'authorization_code',
+      },
+    });
+    console.log('wxRes', wxRes);
+    
+    const { openid, session_key } = wxRes.data;
+    if (!openid) {
+      ctx.status = 400;
+      ctx.body = { message: '微信登录失败', error: wxRes.data };
+      return;
+    }
+    // 2. 查找或注册用户
+    let user = await User.findOne({ wxOpenid: openid });
+    if (!user) {
+      user = new User({
+        username: 'wx_' + openid.slice(-8),
+        wxOpenid: openid,
+        // password: '', // 微信用户无密码
+      });
+      await user.save();
+    }
+    // 3. 生成token
+    const token = jwt.sign({ id: user._id, username: user.username }, secret, {
+      expiresIn: '7d',
+    });
+    ctx.body = {
+      message: '微信登录成功',
+      token,
+      user: { id: user._id, username: user.username, email: user.email, wxOpenid: user.wxOpenid },
+    };
+  } catch (error) {
+    ctx.status = 500;
+    ctx.body = { message: '微信登录异常', error: error.message };
   }
 };

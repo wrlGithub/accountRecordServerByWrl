@@ -13,4 +13,7 @@ router.post('/login', authController.login);
 // 用户信息修改
 router.put('/profile', authMiddleware, authController.updateProfile);
 
+// 微信小程序登录
+router.post('/wxlogin', authController.wxLogin);
+
 module.exports = router; 
